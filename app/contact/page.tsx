@@ -1,5 +1,6 @@
 "use client";
 
+import type { FormEvent } from "react";
 import { useState } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -15,8 +16,12 @@ export default function ContactPage() {
   });
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
     const newErrors: Record<string, boolean> = {};
     if (!formData.name.trim()) newErrors.name = true;
     if (!formData.email.trim()) newErrors.email = true;
@@ -27,7 +32,33 @@ export default function ContactPage() {
       return;
     }
 
-    setSubmitted(true);
+    setErrors({});
+    setSubmitError("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        setSubmitError(payload?.error ?? "Failed to send message");
+        return;
+      }
+
+      setSubmitted(true);
+    } catch {
+      setSubmitError("Failed to send message");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (field: string, value: string) => {
@@ -135,7 +166,7 @@ export default function ContactPage() {
             {/* Right Column - Contact Form */}
             <div className="bg-background border-[1.5px] border-border rounded-[22px] p-8.5 shadow-[var(--shadow-md)]">
               {!submitted ? (
-                <div>
+                <form onSubmit={handleSubmit}>
                   <div className="font-display text-[22px] font-extrabold mb-1.5 tracking-tight">
                     Send us a message
                   </div>
@@ -239,11 +270,18 @@ export default function ContactPage() {
                     />
                   </div>
 
+                  {submitError ? (
+                    <p className="text-xs text-accent3 mt-1 mb-1.5">
+                      {submitError}
+                    </p>
+                  ) : null}
+
                   <button
-                    onClick={handleSubmit}
+                    type="submit"
+                    disabled={isSubmitting}
                     className="w-full inline-flex items-center justify-center gap-2 text-[14.5px] font-semibold text-white bg-accent border-none rounded-[10px] px-6 py-3 mt-1.5 transition-all tracking-tight hover:bg-accent-hover cursor-pointer"
                   >
-                    Send message
+                    {isSubmitting ? "Sending..." : "Send message"}
                   </button>
 
                   <p className="text-xs text-text3 mt-3 text-center">
@@ -257,7 +295,7 @@ export default function ContactPage() {
                     </a>
                     .
                   </p>
-                </div>
+                </form>
               ) : (
                 <div className="text-center py-10 px-6">
                   <div className="text-[44px] mb-3.5">🎉</div>
